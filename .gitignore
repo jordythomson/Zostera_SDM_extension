@@ -47,3 +47,13 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# .tiff
+.tiff
+
+# all spatial data files
+data/shapefile
+data/raster
+
+# Output layers
+ZosteraMarina/
