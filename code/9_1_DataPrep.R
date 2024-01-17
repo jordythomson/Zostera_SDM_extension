@@ -73,124 +73,96 @@ fishnet <- st_read("data/shapefile/sg_sdm_fishnet.shp")
 
 
 
-# 2. Aggregate eelgrass occurrence observation ====
+# 2. Aggregate eelgrass occurrence observations within cells and then thin spatially ====
 
 # Read in eelgrass occurrence records
-sg_records <- read.csv("data/csv/eelgrass_occurrence_records_20230918.csv") %>%
-  dplyr::select(-starts_with("sampling")) %>% 
-  mutate(SG = as.numeric(seagrass)) %>% # convert species column to numeric
-  # recode substrate classes
-  # mutate(subObs = recode(subObs, 
-  #                       "Mud" = "Muddy", 
-  #                       "Mud & Boulders" = "Muddy", 
-  #                       "Mud & Gravel" = "Muddy", 
-  #                       "Mud & Gravel & Boulders" = "Muddy", 
-  #                       "Sand" = "Sandy", 
-  #                       "Sand & Boulders" = "Sandy", 
-  #                       "Sand & Gravel" = "Sandy",
-  #                       "Mixed" = "Muddy",
-  #                       "Hard Substrate" = "Rocky")) %>% 
-  # filter(!is.na(subObs_JT)) %>%
-  filter(!is.na(latitude) & !is.na(longitude)) %>%
-  # filter(source != "EAC_2019_2021") %>% # data set is John's original plus a few others but without EAC
-  # mutate(subObs_int = recode(subObs,
-  #                           "Muddy" = 1,
-  #                           "Sand & Mud" = 2,
-  #                           "Sandy" = 3,
-  #                           "Rocky" = 4)) %>% 
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
-  st_transform(26920)
+# sg_records <- read.csv("data/csv/eelgrass_occurrence_records_20230918.csv") %>%
+#  dplyr::select(-starts_with("sampling")) %>% 
+#  mutate(SG = as.numeric(seagrass)) %>% # convert species column to numeric
+#  filter(!is.na(latitude) & !is.na(longitude)) %>%
+#  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
+#  st_transform(26920)
 
 # Join eelgrass records with fishnet grid
-joined_grid <- st_join(fishnet, sg_records) %>%
-  filter(!is.na(seagrass)) 
+# joined_grid <- st_join(fishnet, sg_records) %>%
+#  filter(!is.na(seagrass)) 
 
 # Aggregate multiple observations in the same grid cell
-join_gridAgg <- joined_grid %>% 
-  group_by(GridID) %>% # group by grid cell ID
-  summarise(subObs_int = raster::modal(subObs_JT, na.rm = TRUE), # modal substrate value
-            seagrass = sum(seagrass), # any SG presence = present
-            cover = mean(percent.cover, na.rm = TRUE), 
-            freq = n()) %>% # frequency of observations per grid cell
-  mutate(seagrass = if_else(seagrass > 0, 1, 0)) # rescale P-A to 0-1
-str(join_gridAgg)
+# join_gridAgg <- joined_grid %>% 
+#  group_by(GridID) %>% # group by grid cell ID
+#  summarise(subObs_int = raster::modal(subObs_JT, na.rm = TRUE), # modal substrate value
+#            seagrass = sum(seagrass), # any SG presence = present
+#            cover = mean(percent.cover, na.rm = TRUE), 
+#            freq = n()) %>% # frequency of observations per grid cell
+#  mutate(seagrass = if_else(seagrass > 0, 1, 0)) # rescale P-A to 0-1
+# str(join_gridAgg)
 
 # Covert back to lat/lon
-join_gridAgg2 <- st_transform(join_gridAgg, crs = 4326) %>%
-  st_centroid(.) %>%
-  dplyr::mutate(lon = sf::st_coordinates(.)[,1],
-                lat = sf::st_coordinates(.)[,2]) %>%
-  mutate(species = rep("eelgrass", 3396))
-#  st_drop_geometry(.)
-str(join_gridAgg2)
+# join_gridAgg2 <- st_transform(join_gridAgg, crs = 4326) %>%
+#  st_centroid(.) %>%
+#  dplyr::mutate(lon = sf::st_coordinates(.)[,1],
+#                lat = sf::st_coordinates(.)[,2]) %>%
+#  mutate(species = rep("eelgrass", 3396))
+# str(join_gridAgg2)
 
 # Add column with row names (case ID) to facilitate left join after spatial thinning
-join_gridAgg2$id <- as.numeric(rownames(join_gridAgg2))
-str(join_gridAgg2)
+# join_gridAgg2$id <- as.numeric(rownames(join_gridAgg2))
+# str(join_gridAgg2)
 
 
 
 
 
 # Spatially thin grid cells using NND of 200 m
-thinned <-
-  thin(loc.data = join_gridAgg2,
-       lat.col = "lat", long.col = "lon",
-       spec.col = "species", 
-       thin.par = 0.2, reps = 100, # set 200 m nearest neighbour distance, repeat process 100 times because there is a random element; proceed with data set that retains the most observations within the NND constraint
-       locs.thinned.list.return = TRUE,
-       write.files = FALSE,
-       out.dir = "output/",
-       write.log.file = TRUE,
-       log.file = "spatial_thin_log.txt",
-       verbose = TRUE)
+# thinned <-
+#  thin(loc.data = join_gridAgg2,
+#       lat.col = "lat", long.col = "lon",
+#       spec.col = "species", 
+#       thin.par = 0.2, reps = 100, # set 200 m nearest neighbour distance, repeat process 100 times because there is a random element; proceed with data set that retains the most observations within the NND constraint
+#       locs.thinned.list.return = TRUE,
+#       write.files = FALSE,
+#       out.dir = "output/",
+#       write.log.file = TRUE,
+#       log.file = "spatial_thin_log.txt",
+#       verbose = TRUE)
 
 # Save list of retained cells as data frame
-thinned2 <- as.data.frame(thinned[1]) %>%
-  mutate(id = as.integer(rownames(.))) %>% # add row names as id column
-  rename(., lon = Longitude, lat = Latitude) %>%
-  dplyr::select(-lat, -lon)
+# thinned2 <- as.data.frame(thinned[1]) %>%
+#  mutate(id = as.integer(rownames(.))) %>% # add row names as id column
+#  rename(., lon = Longitude, lat = Latitude) %>%
+#  dplyr::select(-lat, -lon)
 
-str(thinned2) # 1061 cases retained
-thinned2
+# str(thinned2) # 1062 cases retained
+# thinned2
 
-write.csv(thinned2, "output/thinned_locations_200m_20231206.csv")
+# write.csv(thinned2, "output/thinned_locations_200m_20231206.csv")
 
 # Left join list of retained cells with variables in join_gridAgg2
-join_gridAgg2 <- left_join(thinned2, join_gridAgg2, by = "id")
-join_gridAgg2  
-str(join_gridAgg2)
+# join_gridAgg2 <- left_join(thinned2, join_gridAgg2, by = "id")
+# join_gridAgg2  
+# str(join_gridAgg2)
 
 # Covert back to sf object 
-join_gridAgg2 <- st_as_sf(join_gridAgg2)
-str(join_gridAgg2)
+# join_gridAgg2 <- st_as_sf(join_gridAgg2)
+# str(join_gridAgg2)
 
 # Transform to UTM
-join_gridAgg2 %>% 
-  st_transform(26920)
-str(join_gridAgg2)
-View(join_gridAgg2)
+# join_gridAgg2 %>% 
+#  st_transform(26920)
+# str(join_gridAgg2)
+# View(join_gridAgg2)
 
 # Write joined grid to shapefile
-st_write(obj = join_gridAgg2,
-         dsn = "data/shapefile",
-         layer = "9_SG_pop_grid",
-         driver = "ESRI Shapefile",
-         append = FALSE)
+# st_write(obj = join_gridAgg2,
+#         dsn = "data/shapefile",
+#         layer = "9_SG_pop_grid",
+#         driver = "ESRI Shapefile",
+#         append = FALSE)
 
-# Ok, now we have:
-
-# 1. Aggregated all seagrass observations per grid cell
-  # a. any presence within cell = 1, no presence = 0
-  # b. mean percent cover within cell
-# 2. Spatially thinned data set using 200 m NND threshold
-
-# I should just have to create raster files for each of the relevant metrics, 
-# stack them with the environmental predictors and convert to a dataframe
-# to get the structure needed for the abundance analysis
+join_gridAgg <- st_read("data/shapefile/9_SG_pop_grid.shp") %>%
+  st_transform(26920)
 
 
-?cellFromXY
 
 
 # 3. Update, stack, and crop environmental predictor layers==== 
@@ -282,12 +254,12 @@ levels(substrate) <- rat
 # ws1m_q90 <- raster("data/raster/ws1m_q90.tif") # mean of daily 90th quantile of water velocity, June 1st - Sep 15th, 2021
 
 # Stack predictors, crop to study domain, and rename
-predictors <- stack(dem, slope, bpi_broad, bpi_fine, substrate, rei) 
-names(predictors) <- c("bathy_m", "slope", "bpi_broad", "bpi_fine", "sub_type", "rei")
+predictors <- stack(dem, slope, bpi_broad, bpi_fine, rei) 
+names(predictors) <- c("bathy_m", "slope", "bpi_broad", "bpi_fine", "rei")
 str(predictors)
 
 
-test <- as.data.frame(predictors)
+
 
 
 # 4. Format data for biomod2 ====
@@ -302,7 +274,7 @@ coords <- st_centroid(join_gridAgg) # coordinates of grid cells with eelgrass da
 myExpl <- coords %>% 
   raster::extract(predictors, ., df = TRUE) %>% 
   dplyr::select(-ID)
-dim(myExpl) # 1049
+dim(myExpl) # 1062
 
 # Fill missing predictor values
 slope_NA <- is.na(myExpl$slope)
@@ -312,29 +284,29 @@ rei_NA <- is.na(myExpl$rei)
 myExpl[slope_NA, "slope"] <- raster::extract(predictors$slope, coords[slope_NA,], buffer = 100, fun = mean)
 myExpl[rei_NA, "rei"] <- raster::extract(predictors$rei, coords[rei_NA,], buffer = 100, fun = mean)
 # myExpl[sub_type_NA, "sub_type"] <- raster::extract(predictors$sub_type, coords[sub_type_NA,], buffer = 80, fun = raster::modal)
-dim(myExpl) # 1049
+dim(myExpl) # 1062
 
 # Presence/absences data for our species 
-myResp <- join_gridAgg$seagrass[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m) & !is.na(myExpl$sub_type)]
-length(myResp) # 1030
+myResp <- join_gridAgg$seagrass[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m)]
+length(myResp) # 1044
 str(myResp)
 
 # XY coordinates of species data
 myRespXY <- st_centroid(join_gridAgg) %>% 
   st_coordinates()
-myRespXY <- myRespXY[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m) & !is.na(myExpl$sub_type),]
-length(myRespXY) # 2060
+myRespXY <- myRespXY[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m),]
+length(myRespXY) # 2088
 str(myRespXY)
 
 # biomod2 format
 myBiomodData <- BIOMOD_FormatingData(resp.var = myResp,
-                                     expl.var = filter(myExpl, !is.na(slope) & !is.na(rei) & !is.na(bathy_m) & !is.na(myExpl$sub_type)),
+                                     expl.var = filter(myExpl, !is.na(slope) & !is.na(rei) & !is.na(bathy_m)),
                                      resp.xy = myRespXY,
                                      resp.name = myRespName)
-str(myBiomodData) # 1030
+str(myBiomodData) # 1044
 
 # Save biomod2 formatted data
-saveRDS(myBiomodData, file = "data/rds/8_biomod2_data.rds")
+saveRDS(myBiomodData, file = "data/rds/10_biomod2_data.rds")
 
 # Check for collinearity among predictors
 
@@ -348,7 +320,7 @@ apply(abs(cor_spear), MARGIN = 2, FUN = max, na.rm = TRUE)
 
 # Variance Inflation Factors - VIF < 3
 vif_pred <- vif(myBiomodData@data.env.var)
-range(vif_pred$VIF) # 1.28 - 1.92
+range(vif_pred$VIF) # 1.31 - 1.81
 
 
 
@@ -372,10 +344,10 @@ sac <- cv_spatial_autocor(r = predictors.sub,
                           num_sample = 5000,
                           progress = TRUE, 
                           plot = FALSE) 
-sac$range # 16871
+sac$range # 20821
 
 # spatial blocking by range of spatial autocorrelation with random assignment
-sb <- spatialBlock(speciesData = join_gridAgg[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m) & !is.na(myExpl$sub_type),],
+sb <- spatialBlock(speciesData = join_gridAgg[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m),],
                    species = "seagrass",
                    rasterLayer = predictors,
                    theRange = sac$range, # size of the blocks; 41772 m
@@ -387,10 +359,10 @@ sb <- spatialBlock(speciesData = join_gridAgg[!is.na(myExpl$slope) & !is.na(myEx
                    yOffset = 0) 
 DataSplitTable <- sb$biomodTable
 head(DataSplitTable)
-dim(DataSplitTable) # 1030
+dim(DataSplitTable) # 1044
 
 # Save CV partition
-saveRDS(DataSplitTable, file = "data/rds/8_CV_folds_biomod.rds")
+saveRDS(DataSplitTable, file = "data/rds/10_CV_folds_biomod.rds")
 
 # Plot spatial blocks
 sb_plots <- ggplot() +

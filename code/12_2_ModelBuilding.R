@@ -49,11 +49,11 @@ rasterOptions(chunksize = 1e+05, maxmemory = 1e+09)
 
 # Import formatted biomod2 data and CV folds
 
-myBiomodData <- readRDS("data/rds/11_biomod2_data.rds") # biomod2 data
-str(myBiomodData) # 1483
+myBiomodData <- readRDS("data/rds/12_biomod2_data.rds") # biomod2 data
+str(myBiomodData) # 1046
 
-DataSplitTable <- readRDS("data/rds/11_CV_folds_biomod.rds")
-dim(DataSplitTable) # 1483
+DataSplitTable <- readRDS("data/rds/12_CV_folds_biomod.rds")
+dim(DataSplitTable) # 1046
 
 # Define Models Options using default options
 
@@ -90,7 +90,7 @@ eval <- get_evaluations(myBiomodModelOut) %>%
                na.rm = TRUE))
 eval
 
-saveRDS(eval, file = "Output/11_AllMods_evalStats.rds")
+saveRDS(eval, file = "Output/12_AllMods_evalStats.rds")
 
 # Get variable importance
 var_impALL <- get_variables_importance(myBiomodModelOut)
@@ -103,7 +103,7 @@ imp_df
 imp_df[order(imp_df$var.imp.mean),]
 
 # Save importance values
-saveRDS(imp_df, file = "Output/11_VarImp_ALL.rds")
+saveRDS(imp_df, file = "Output/12_VarImp_ALL.rds")
 
 
 
@@ -115,7 +115,7 @@ myBiomodEM <- BIOMOD_EnsembleModeling(bm.mod = myBiomodModelOut,
                                        em.by = "PA+run", # changed from em.by = "PA_dataset+repet"
                                        em.algo = "EMwmean",
                                        metric.select = c("ROC"),
-                                       metric.select.thresh = c(0.7),
+                                       metric.select.thresh = c(0.75),
                                        metric.eval = c("TSS","ROC"),
                                        # prob.mean = FALSE,
                                        # prob.cv = FALSE,
@@ -141,7 +141,7 @@ eval_em <- get_evaluations(myBiomodEM) %>%
 eval_em
 
 # Save evaluations
-saveRDS(eval_em, file = "Output/11_Ensemble_evalStats.rds")
+saveRDS(eval_em, file = "Output/12_Ensemble_evalStats.rds")
 
 # Updated code
 var_impEM <- get_variables_importance(myBiomodEM)
@@ -158,7 +158,7 @@ table_var_impEM <- summaryBy(var.imp ~ expl.var + merged.by.run, FUN = c(mean), 
 table_var_impEM
 
 # Save importance values
-saveRDS(table_var_impEM, file = "Output/11_VarImp_Ensemble.rds")
+saveRDS(table_var_impEM, file = "Output/12_VarImp_Ensemble.rds")
 
 
 
@@ -167,7 +167,7 @@ saveRDS(table_var_impEM, file = "Output/11_VarImp_Ensemble.rds")
 # 4. Project current distribution ====
 
 # a. Load predictors
-dem <- raster("data/raster/bathy_yw_orig_v2_aligned_clipped_recalc_ext_20230810.tif")
+dem <- raster("data/raster/bathy_yw_orig_v2_adj0_fieldvals.tif")
 # substrate <- raster("data/raster/substrate_reclassified_20230911_mergeCHS_manualupdate.tif")
 # substrate <- as.factor(substrate)
 # substrate <- ratify(substrate)
@@ -215,11 +215,6 @@ myBiomodProjection <- BIOMOD_Projection(myBiomodModelOut,
                                         compress = TRUE)
 
 get_built_models(myBiomodModelOut) # use this command to get list of fitted model names
-
-# Outputs predictions into CurrentZostera sub-folder, file = proj_CurrentZostera_ZosteraMarina.tif
-# This .tif file has 35 bands (one for each model); these are added to QGIS project and through symbology can display one at a time
-# However, the individual_projections sub-folder is empty... this is where I expected individual model .tif files to show up
-
 str(myBiomodProjection)
 myBiomodProjection
 
@@ -230,13 +225,7 @@ myBiomodProjection
 # 5. Project current distribution predicted from ensemble ====
 myEnsembleProjection <- BIOMOD_EnsembleForecasting(bm.em = myBiomodEM,
                                                    bm.proj = myBiomodProjection,
-                                                   proj.name = "10_EM_CurrentZostera_projection",
+                                                   proj.name = "12_EM_CurrentZostera_projection",
                                                    models.chosen = "all",
                                                    metric.binary = c("ROC","TSS"),
                                                    compress = TRUE)
-
-get_built_models(myBiomodEM)
-
-?BIOMOD_EnsembleForecasting
-
-cat("Proceed to 3FigurePrep.R")
