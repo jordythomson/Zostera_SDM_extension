@@ -49,11 +49,11 @@ rasterOptions(chunksize = 1e+05, maxmemory = 1e+09)
 
 # Import formatted biomod2 data and CV folds
 
-myBiomodData <- readRDS("data/rds/12_biomod2_data.rds") # biomod2 data
-str(myBiomodData) # 1046
+myBiomodData <- readRDS("data/rds/13_biomod2_data.rds") # biomod2 data
+str(myBiomodData) # 1080
 
-DataSplitTable <- readRDS("data/rds/12_CV_folds_biomod.rds")
-dim(DataSplitTable) # 1046
+DataSplitTable <- readRDS("data/rds/13_CV_folds_biomod.rds")
+dim(DataSplitTable) # 1080
 
 # Define Models Options using default options
 
@@ -90,7 +90,7 @@ eval <- get_evaluations(myBiomodModelOut) %>%
                na.rm = TRUE))
 eval
 
-saveRDS(eval, file = "Output/12_AllMods_evalStats.rds")
+saveRDS(eval, file = "Output/13_AllMods_evalStats.rds")
 
 # Get variable importance
 var_impALL <- get_variables_importance(myBiomodModelOut)
@@ -103,7 +103,7 @@ imp_df
 imp_df[order(imp_df$var.imp.mean),]
 
 # Save importance values
-saveRDS(imp_df, file = "Output/12_VarImp_ALL.rds")
+saveRDS(imp_df, file = "Output/13_VarImp_ALL.rds")
 
 
 
@@ -115,7 +115,7 @@ myBiomodEM <- BIOMOD_EnsembleModeling(bm.mod = myBiomodModelOut,
                                        em.by = "PA+run", # changed from em.by = "PA_dataset+repet"
                                        em.algo = "EMwmean",
                                        metric.select = c("ROC"),
-                                       metric.select.thresh = c(0.75),
+                                       metric.select.thresh = c(0.7),
                                        metric.eval = c("TSS","ROC"),
                                        # prob.mean = FALSE,
                                        # prob.cv = FALSE,
@@ -141,7 +141,7 @@ eval_em <- get_evaluations(myBiomodEM) %>%
 eval_em
 
 # Save evaluations
-saveRDS(eval_em, file = "Output/12_Ensemble_evalStats.rds")
+saveRDS(eval_em, file = "Output/13_Ensemble_evalStats.rds")
 
 # Updated code
 var_impEM <- get_variables_importance(myBiomodEM)
@@ -158,7 +158,7 @@ table_var_impEM <- summaryBy(var.imp ~ expl.var + merged.by.run, FUN = c(mean), 
 table_var_impEM
 
 # Save importance values
-saveRDS(table_var_impEM, file = "Output/12_VarImp_Ensemble.rds")
+saveRDS(table_var_impEM, file = "Output/13_VarImp_Ensemble.rds")
 
 
 
@@ -208,7 +208,7 @@ names(predictors) <- c("bathy_m","slope","bpi_broad", # rename layers
 # b. Project current distribution for all individual models and CV runs
 myBiomodProjection <- BIOMOD_Projection(myBiomodModelOut,
                                         new.env = stack(predictors),
-                                        proj.name = "12_CurrentZostera_projection",
+                                        proj.name = "13_CurrentZostera_projection",
                                         models.chosen = "all",
                                         metric.binary = NULL,
                                         build.clamping.mask = FALSE, 
@@ -225,7 +225,7 @@ myBiomodProjection
 # 5. Project current distribution predicted from ensemble ====
 myEnsembleProjection <- BIOMOD_EnsembleForecasting(bm.em = myBiomodEM,
                                                    bm.proj = myBiomodProjection,
-                                                   proj.name = "12_EM_CurrentZostera_projection",
+                                                   proj.name = "13_EM_CurrentZostera_projection",
                                                    models.chosen = "all",
                                                    metric.binary = c("ROC","TSS"),
                                                    compress = TRUE)

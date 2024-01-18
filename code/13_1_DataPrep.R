@@ -52,7 +52,7 @@ fishnet <- st_read("data/shapefile/sg_sdm_fishnet.shp")
 # 2. Aggregate eelgrass occurrence observations within cells and then thin spatially ====
 
 # Read in eelgrass occurrence records
-sg_records <- read.csv("data/csv/eelgrass_occurrence_records_20240117.csv") %>%
+sg_records <- read.csv("data/csv/eelgrass_occurrence_records_20240118.csv") %>%
   dplyr::select(-starts_with("sampling")) %>% 
   mutate(SG = as.numeric(seagrass)) %>% # convert species column to numeric
   filter(!is.na(latitude) & !is.na(longitude)) %>% # filter out any points with no lat/lon
@@ -73,6 +73,24 @@ join_gridAgg <- joined_grid %>%
             depth = mean(bathy_m*-1, na.rm = TRUE), # invert depths to be consistent with bathymetry raster
             freq = n()) %>% # frequency of observations per grid cell
   mutate(seagrass = if_else(seagrass > 0, 1, 0)) # rescale P-A to 0-1
+
+# Update bathymetry with field values prior to spatial thinning so that all available depth data are used
+# dem <- raster("data/raster/bathy_yw_orig_v2_adj0.tif")
+
+# Replace cell values with observed depth values if available
+# cells <- join_gridAgg %>%
+#  filter(!is.na(depth)) %>% 
+#  st_centroid() %>% 
+#  st_coordinates() %>% 
+#  cellFromXY(dem, .)
+#  dem_vals <- values(dem)
+#  new_vals <- filter(join_gridAgg, !is.na(depth)) %>% 
+#  pull(depth)
+#  dem_vals[cells] <- new_vals
+#  dem <- setValues(dem, dem_vals)
+
+# Write new raster to file
+# writeRaster(dem, filename = "data/raster/bathy_yw_orig_v2_adj0_fieldvals.tif")
 
 # The next few steps are setting up a dataframe for spatial thinning
 
@@ -106,10 +124,10 @@ thinned2 <- as.data.frame(thinned[1]) %>%
   rename(., lon = Longitude, lat = Latitude) %>%
   dplyr::select(-lat, -lon)
 
-str(thinned2) # 1065 cases retained
+str(thinned2) # 1100 cases retained
 thinned2
 
-write.csv(thinned2, "output/thinned_locs_200m_model12_20240118.csv")
+write.csv(thinned2, "output/thinned_locs_200m_model13_20240118.csv")
 
 # Left join list of retained cells with variables in join_gridAgg2
 join_gridAgg2 <- left_join(thinned2, join_gridAgg2, by = "id")
@@ -128,12 +146,12 @@ str(join_gridAgg2)
 # Write joined grid to shapefile
 st_write(obj = join_gridAgg2,
          dsn = "data/shapefile",
-         layer = "12_SG_pop_grid",
+         layer = "13_SG_pop_grid",
          driver = "ESRI Shapefile",
          append = FALSE)
 
 # Read joined grid
-join_gridAgg <- st_read("data/shapefile/12_SG_pop_grid.shp") %>%
+join_gridAgg <- st_read("data/shapefile/13_SG_pop_grid.shp") %>%
   st_transform(26920)
 
 
@@ -142,26 +160,7 @@ join_gridAgg <- st_read("data/shapefile/12_SG_pop_grid.shp") %>%
 
 # 3. Update, stack, and crop environmental predictor layers==== 
 
-# Bathymetry and derivitives
-
 # Bathymetry
-# dem <- raster("data/raster/bathy_yw_orig_v2_adj0.tif")
-
-# Replace cell values with observed depth values if available
-# cells <- join_gridAgg %>%
-#  filter(!is.na(depth)) %>% 
-#  st_centroid() %>% 
-#  st_coordinates() %>% 
-#  cellFromXY(dem, .)
-#  dem_vals <- values(dem)
-#  new_vals <- filter(join_gridAgg, !is.na(depth)) %>% 
-#  pull(depth)
-#  dem_vals[cells] <- new_vals
-#  dem <- setValues(dem, dem_vals)
-
-# Write new raster to file
-# writeRaster(dem, filename = "data/raster/bathy_yw_orig_v2_adj0_fieldvals.tif")
-
 dem <- raster("data/raster/bathy_yw_orig_v2_adj0_fieldvals.tif")
 
 # Seabed slope
@@ -197,7 +196,7 @@ coords <- st_centroid(join_gridAgg) # coordinates of grid cells with eelgrass da
 myExpl <- coords %>% 
   raster::extract(predictors, ., df = TRUE) %>% 
   dplyr::select(-ID)
-dim(myExpl) # 1065
+dim(myExpl) # 1100
 
 # Fill missing predictor values
 slope_NA <- is.na(myExpl$slope)
@@ -205,18 +204,18 @@ rei_NA <- is.na(myExpl$rei)
 
 myExpl[slope_NA, "slope"] <- raster::extract(predictors$slope, coords[slope_NA,], buffer = 100, fun = mean)
 myExpl[rei_NA, "rei"] <- raster::extract(predictors$rei, coords[rei_NA,], buffer = 100, fun = mean)
-dim(myExpl) # 1065
+dim(myExpl) # 1100
 
 # Presence/absences data for our species 
 myResp <- join_gridAgg$seagrass[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m)]
-length(myResp) # 1047
+length(myResp) # 1080
 str(myResp)
 
 # XY coordinates of species data
 myRespXY <- st_centroid(join_gridAgg) %>% 
   st_coordinates()
 myRespXY <- myRespXY[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m),]
-length(myRespXY) # 2094
+length(myRespXY) # 2160
 str(myRespXY)
 
 # biomod2 format
@@ -224,10 +223,10 @@ myBiomodData <- BIOMOD_FormatingData(resp.var = myResp,
                                      expl.var = filter(myExpl, !is.na(slope) & !is.na(rei) & !is.na(bathy_m)),
                                      resp.xy = myRespXY,
                                      resp.name = myRespName)
-str(myBiomodData) # 1047
+str(myBiomodData) # 1080
 
 # Save biomod2 formatted data
-saveRDS(myBiomodData, file = "data/rds/12_biomod2_data.rds")
+saveRDS(myBiomodData, file = "data/rds/13_biomod2_data.rds")
 
 # Check for collinearity among predictors
 
@@ -241,7 +240,7 @@ apply(abs(cor_spear), MARGIN = 2, FUN = max, na.rm = TRUE)
 
 # Variance Inflation Factors - VIF < 3
 vif_pred <- vif(myBiomodData@data.env.var)
-range(vif_pred$VIF) # 1.29 - 1.61
+range(vif_pred$VIF) # 1.31 - 1.57
 
 
 
@@ -263,7 +262,7 @@ sac <- cv_spatial_autocor(r = predictors,
                           num_sample = 5000,
                           progress = TRUE, 
                           plot = FALSE) 
-sac$range # 19064
+sac$range # 19088
 
 # spatial blocking by range of spatial autocorrelation with random assignment
 sb <- spatialBlock(speciesData = join_gridAgg[!is.na(myExpl$slope) & !is.na(myExpl$rei) & !is.na(myExpl$bathy_m),],
@@ -278,10 +277,10 @@ sb <- spatialBlock(speciesData = join_gridAgg[!is.na(myExpl$slope) & !is.na(myEx
                    yOffset = 0) 
 DataSplitTable <- sb$biomodTable
 head(DataSplitTable)
-dim(DataSplitTable) # 1047
+dim(DataSplitTable) # 1080
 
 # Save CV partition
-saveRDS(DataSplitTable, file = "data/rds/12_CV_folds_biomod.rds")
+saveRDS(DataSplitTable, file = "data/rds/13_CV_folds_biomod.rds")
 
 # Plot spatial blocks
 sb_plots <- ggplot() +
